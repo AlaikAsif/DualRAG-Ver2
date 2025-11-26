@@ -1,0 +1,1 @@
+# Download embedding models locally

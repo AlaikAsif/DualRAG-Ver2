@@ -1,0 +1,1 @@
+# Initialize SQL database schema

@@ -1,0 +1,56 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+venv/
+ENV/
+env/
+.venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Data directories (don't commit large files)
+data/documents/raw/
+data/documents/processed/
+data/vectors/static/chroma.sqlite3
+data/vectors/static/index/
+data/database/*.db
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build
+build/
+dist/
+*.egg-info/
+
+# Logs
+*.log
+logs/
+
+# Temporary
+.pytest_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Frontend
+frontend/build/
+node_modules/
+
+# Database
+*.sqlite3
+*.sqlite

@@ -1,0 +1,1 @@
+# Default HTML report template

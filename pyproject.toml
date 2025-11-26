@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "chatbot-revamp"
+version = "0.1.0"
+description = "Advanced LLM-driven chatbot with RAG and orchestration"
+readme = "README.md"
+requires-python = ">=3.11"
+license = {text = "MIT"}
+authors = [
+    {name = "Your Name", email = "your.email@example.com"}
+]
+
+[project.urls]
+"Homepage" = "https://github.com/yourusername/chatbot-revamp"
+"Documentation" = "https://github.com/yourusername/chatbot-revamp/tree/main/docs"
+
+[tool.black]
+line-length = 100
+target-version = ['py311']
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true

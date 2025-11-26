@@ -1,0 +1,3 @@
+"""
+Report templates module.
+"""

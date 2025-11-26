@@ -1,0 +1,1 @@
+# Safe SQL query execution

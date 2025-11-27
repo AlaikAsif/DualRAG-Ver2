@@ -10,20 +10,38 @@ SQL RAG handles natural language to SQL conversion and safe database query execu
 - Connection pooling
 - Schema caching
 
+### schema_manager.py
+- Manage and cache database schema
+- Schema versioning
+- Lazy loading of schema details
+
 ### schema_retriever.py
 - Retrieve relevant database schema
 - Column and table information
 - Relationship mapping
+- Semantic schema search
+
+### schema_embeddings.py
+- Generate embeddings for schema
+- Vector-based schema search
+- Cache schema vectors for performance
 
 ### query_generator.py
 - LLM-based SQL generation
 - Schema-aware query construction
-- Query validation
+- Context from schema embeddings
+
+### validator.py
+- Validate generated SQL queries
+- Check for SQL injection
+- Verify schema compatibility
+- Enforce query constraints
 
 ### executor.py
 - Safe query execution
 - Permission checks
 - Result limiting
+- Query timeout enforcement
 
 ### result_parser.py
 - Parse SQL results

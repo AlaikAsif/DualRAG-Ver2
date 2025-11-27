@@ -11,7 +11,7 @@ The `rag/` module implements two types of RAG systems:
 Vector-based retrieval from document embeddings using Chroma vector database.
 
 ### sql/
-Database query generation and execution with text-to-SQL.
+Database query generation and execution with text-to-SQL and schema embeddings.
 
 ## Key Concepts
 

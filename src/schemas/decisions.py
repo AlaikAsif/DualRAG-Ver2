@@ -197,8 +197,10 @@ Static Rage Descisions
 """
 
 class StaticRagDecision(BaseModel):
-    pass
-
+    query: str = Field(description="Reformulated query for static RAG retrieval")
+    filters: Optional[Dict[str, Union[str, int, float]]] = Field(None,description="Metadata filters for document retrieval eg: {'category': 'finance', 'date_after': '2023-01-01'}")
+    similarity_threshold: float = Field(0.7,ge=0.0,le=1.0,description="Minimum similarity score for results")       
+    rerank: bool = Field(True,description="Whether to rerank results")    
 """
 ////////////////////////
 SQL Rage Descisions
@@ -206,7 +208,12 @@ SQL Rage Descisions
 """
 
 class SQLRagDecision(BaseModel):
-    pass
+    intent: str = Field("What data to retrieve from SQL eg: 'top 5 customers by revenue', last sales figures etc",description="SQL retrieval intent")
+    tables_needed: Optional[List[str]] = Field(None,description="List of database tables needed for the query")
+    aggregations: Optional[List[str]] = Field(None,description="List of aggregations needed eg: SUM, AVG, COUNT")
+    time_range: Optional[Dict[str, str]] = Field(None,description="Time range for data retrieval eg: {'start_date': '2023-01-01', 'end_date': '2023-12-31'}")
+    limiit: int = Field(1000,ge = 1,le = 10000,description="Maximum number of records to retrieve")
+    requires_join: bool = Field(False,description="Whether joins between tables are required")
 
 """
 ////////////////////////
@@ -216,8 +223,19 @@ Report Descisions
 
 
 class ReportDecision(BaseModel):
-    pass
+    report_type: ReportType = Field(description="Type of report needed")
+    customization: Optional[str] = Field(None,description="User's custom report requirements (charts, filters, etc.)")
+    title: str = Field(description="Title of the report")
 
+    #custom report specifics
+    data_sources: Optional[List[str]] = Field(None,description="List of data sources to include in the report")
+    metrics: Optional[List[str]] = Field(None,description="Key metrics to highlight in the report")
+    columns: Optional[List[str]] = Field(None,description="Specific columns to include in the report")
+    formatting_preferences: Optional[Dict[str, str]] = Field(None,description="Formatting preferences eg: {'font_size': '12pt', 'color_scheme': 'dark'}")
+    
+    #template
+    template_name: Optional[str] = Field(None,description="Predefined report template to use if any")
+    custom_css_styles: Optional[str] = Field(None,description="Custom CSS styles for report formatting if any")
 """
 ////////////////////////
 Clarrification Descisions

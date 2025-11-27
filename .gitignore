@@ -8,6 +8,8 @@ venv/
 ENV/
 env/
 .venv/
+.conda/
+.conda-env/
 
 # IDE
 .vscode/
@@ -24,9 +26,17 @@ env/
 # Data directories (don't commit large files)
 data/documents/raw/
 data/documents/processed/
+data/documents/metadata/
 data/vectors/static/chroma.sqlite3
 data/vectors/static/index/
+data/vectors/schema/
 data/database/*.db
+data/database/*.sqlite3
+
+# LLM Models
+*.bin
+*.pt
+models/
 
 # OS
 .DS_Store
@@ -46,11 +56,18 @@ logs/
 .mypy_cache/
 .coverage
 htmlcov/
+.pytest/
 
 # Frontend
 frontend/build/
 node_modules/
+dist/
 
 # Database
 *.sqlite3
 *.sqlite
+*.db
+
+# Chroma DB
+chroma_db/
+chroma_index/

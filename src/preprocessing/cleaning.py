@@ -1,5 +1,8 @@
-# Text cleaning and normalization
-from .loaders import Loader
+"""Text cleaning and normalization
+
+Note: import of Loader is deferred inside `comprehensive_clean()` to avoid
+module-level circular imports between `loaders` and `cleaning`.
+"""
 from langdetect import detect, LangDetectException
 
 class TextCleaner:
@@ -45,6 +48,8 @@ class TextCleaner:
     @staticmethod
     def comprehensive_clean():
         """Apply all cleaning steps to documents."""
+        # Import Loader here to avoid circular import at module import time
+        from .loaders import Loader
         documents = Loader.loop_file_paths()
         cleaned_documents = []
 

@@ -11,15 +11,24 @@ The `chains/` module contains the core LLM interaction logic and chain orchestra
 - Handle model loading and configuration
 
 ### 2. **orchestrator.py** 🔥 MAIN
-- **Primary decision-maker** for routing requests
-- LLM analyzes user intent and decides which chain to execute:
-  - Direct chat response
-  - Static RAG (knowledge base search)
-  - SQL RAG (database query)
-  - Report generation
-  - Follow-up handling
-- Implements intelligent fallback logic
-- Validates routing decisions
+- **Primary decision-maker** for routing requests using multi-stage approach
+- **Stage 1 - LLM-Based Routing** (primary):
+  - Uses RoutingDecision structured output (function calling)
+  - LLM analyzes user intent and decides which chain to execute:
+    - Direct chat response
+    - Static RAG (knowledge base search)
+    - SQL RAG (database query)
+    - Report generation
+    - Follow-up handling
+  - Extracts confidence score for fallback decisions
+- **Stage 2 - Semantic Fallback** (if low confidence):
+  - Embeds query using sentence-transformers
+  - Compares similarity to chain prompt templates
+  - Routes to most similar chain
+- **Stage 3 - Static Fallback** (if both fail):
+  - Routes to general chat chain with logging
+- Implements intelligent fallback chain selection
+- Validates routing decisions via DecisionValidator
 
 ### 3. **chat_chain.py**
 - Handles conversational interactions

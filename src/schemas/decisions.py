@@ -44,7 +44,10 @@ class ResponseMode(str,Enum):
     REPORT = "report" 
 
 class MemoryRequirement(str,Enum):
-    LongTermFollowUp = "long_term"
+    """Memory persistence requirements for follow-up interactions"""
+    SESSION = "session"           # Keep context within current session only
+    PERSISTENT = "persistent"     # Store across sessions for follow-ups
+    NONE = "none"                 # No special memory requirements
 
 
 
@@ -93,101 +96,101 @@ class RoutingDecision(BaseModel):
     session_id: Optional[str] = Field(None,description="User session identifier for context tracking")
 
     #memory
-    memory_requirement: MemoryRequirement = Field(description="If follow-up interactions require long-term memory")
-    follow_up_needed: bool = Field(description="TRUE if follow-up interactions are anticipated")
+    memory_requirement: MemoryRequirement = Field(
+        default=MemoryRequirement.NONE,
+        description=(
+            "If follow-up interactions require memory; default NONE (no memory). "
+            "Use SESSION for session-scoped follow-ups such as report customization, "
+            "or PERSISTENT for cross-session storage."
+        ),
+    )
+    follow_up_needed: bool = Field(default=False, description="TRUE if follow-up interactions are anticipated")
 
-"""
-////////////////////////
-Validation
-////////////////////////
-"""
+    def should_use_rag(self):
+        return self.needs_static_rag or self.needs_sql_rag
 
-@model_validator
-def validate_rag_consistency(cls,values):
-    needs_static = values.get("needs_static_rag")
-    needs_sql = values.get("needs_sql_rag")
-    rag_type = values.get("rag_type")
+    def get_rag_systems(self):
+        systems = []
+        if self.needs_static_rag:
+            systems.append("static")
+        if self.needs_sql_rag:
+            systems.append("sql")
+        return systems
 
-    if rag_type == RagType.Static and not needs_static: 
-        raise ValueError("Inconsistent RAG decision: rag_type is Static but needs_static_rag is False")
-    if rag_type == RagType.SQL and not needs_sql:
-        raise ValueError("Inconsistent RAG decision: rag_type is SQL but needs_sql_rag is False")
-    if rag_type == RagType.BOTH and (not needs_static or not needs_sql):
-        raise ValueError("Inconsistent RAG decision: rag_type is BOTH but one of needs_static_rag or needs_sql_rag is False")
-    if rag_type ==RagType.NONE and (needs_static or needs_sql):
-        raise ValueError("Inconsistent RAG decision: rag_type is NONE but one of needs_static_rag or needs_sql_rag is True")
-    return values
+    def is_high_confidence(self):
+        return self.response_confidence == ResponseConfidence.HIGH
 
-@field_validator
-def validate_static_rag_query(cls,v,values):
-    if values.get("needs_static_rag") and not v:
-        raise ValueError("Static RAG query must be provided if needs_static_rag is True")
-    return v
+    def to_dict(self):
+        return self.model_dump(exclude={'timestamp', 'session_id'})
 
-@field_validator
-def validate_sql_intent(cls,v,values):
-    if values.get("needs_sql_rag") and not v:
-        raise ValueError("SQL intent must be provided if needs_sql_rag is True")
-    return v
+    @model_validator(mode='after')
+    def validate_rag_consistency(self):
+        needs_static = self.needs_static_rag
+        needs_sql = self.needs_sql_rag
+        rag_type = self.rag_type
 
-@field_validator
-def report_customization_validator(cls,v,values):
-    if values.get("needs_report") and values.get("report_type") == ReportType.CUSTOM and not v:
-        raise ValueError("Report customization must be provided if report_type is CUSTOM and needs_report is True")
-    return v
+        if rag_type == RagType.Static and not needs_static: 
+            raise ValueError("Inconsistent RAG decision: rag_type is Static but needs_static_rag is False")
+        if rag_type == RagType.SQL and not needs_sql:
+            raise ValueError("Inconsistent RAG decision: rag_type is SQL but needs_sql_rag is False")
+        if rag_type == RagType.BOTH and (not needs_static or not needs_sql):
+            raise ValueError("Inconsistent RAG decision: rag_type is BOTH but one of needs_static_rag or needs_sql_rag is False")
+        if rag_type == RagType.NONE and (needs_static or needs_sql):
+            raise ValueError("Inconsistent RAG decision: rag_type is NONE but one of needs_static_rag or needs_sql_rag is True")
+        return self
 
-@field_validator
-def follow_up_memory_validator(cls,v,values):
-    if values.get("follow_up_needed") and not v:
-        raise ValueError("Memory requirement must be specified if follow_up_needed is True")
-    return v
+    @field_validator('static_rag_query')
+    @classmethod
+    def validate_static_rag_query(cls, v, info):
+        if info.data.get("needs_static_rag") and not v:
+            raise ValueError("Static RAG query must be provided if needs_static_rag is True")
+        return v
 
-@field_validator
-def clarification_questions_validator(cls,v,values):
-    if values.get("requires_clarification") and (not v or len(v) == 0):
-        raise ValueError("Clarification questions must be provided if requires_clarification is True")
-    return v
+    @field_validator('sql_intent')
+    @classmethod
+    def validate_sql_intent(cls, v, info):
+        if info.data.get("needs_sql_rag") and not v:
+            raise ValueError("SQL intent must be provided if needs_sql_rag is True")
+        return v
 
-@model_validator
-def validate_response_model(cls,values):
-    can_answer = values.get("can_provide_direct_answer")
-    requires_clarification = values.get("requires_clarification")
-    response_mode = values.get("response_mode")
-    needs_report = values.get("needs_report")
+    @field_validator('report_customization')
+    @classmethod
+    def report_customization_validator(cls, v, info):
+        if info.data.get("needs_report") and info.data.get("report_type") == ReportType.CUSTOM and not v:
+            raise ValueError("Report customization must be provided if report_type is CUSTOM and needs_report is True")
+        return v
 
-    if response_mode == ResponseMode.DIRECT and not can_answer:
-            raise ValueError("response_mode is DIRECT but can_answer_directly is False")
+    @field_validator('memory_requirement')
+    @classmethod
+    def follow_up_memory_validator(cls, v, info):
+        if info.data.get("follow_up_needed") and not v:
+            raise ValueError("Memory requirement must be specified if follow_up_needed is True")
+        return v
+
+    @field_validator('clarification_questions')
+    @classmethod
+    def clarification_questions_validator(cls, v, info):
+        if info.data.get("requires_clarification") and (not v or len(v) == 0):
+            raise ValueError("Clarification questions must be provided if requires_clarification is True")
+        return v
+
+    @model_validator(mode='after')
+    def validate_response_model(self):
+        can_answer = self.can_provide_direct_answer
+        requires_clarification = self.requires_clarification
+        response_mode = self.response_mode
+        needs_report = self.needs_report
+
+        if response_mode == ResponseMode.DIRECT and not can_answer:
+            raise ValueError("response_mode is DIRECT but can_provide_direct_answer is False")
         
-    if response_mode == ResponseMode.REPORT and not needs_report:
-        raise ValueError("response_mode is REPORT but needs_report is False")
-    
-    if response_mode == ResponseMode.CLARIFY and not requires_clarification:
-        raise ValueError("response_mode is CLARIFY but requires_clarification is False")
-    
-    return values
-
-"""
-////////////////////////
-Helpers Functions
-////////////////////////
-"""
-
-def should_use_rag(self):
-    return self.rag_needs_static_rag or self.needs_sql_rag
-
-def get_rag_systems(self):
-    systems = []
-    if self.needs_static_rag:
-        systems.append("static")
-    if self.needs_sql_rag:
-        systems.append("sql")
-    return systems
-
-def isHighConfidence(self):
-    return self.response_confidence == ResponseConfidence.HIGH
-
-def toDict(self):
-    return self.dict(exclude={'timestamp', 'session_id'})
+        if response_mode == ResponseMode.REPORT and not needs_report:
+            raise ValueError("response_mode is REPORT but needs_report is False")
+        
+        if response_mode == ResponseMode.CLARIFY and not requires_clarification:
+            raise ValueError("response_mode is CLARIFY but requires_clarification is False")
+        
+        return self
 
 
 """
@@ -208,11 +211,11 @@ SQL Rage Descisions
 """
 
 class SQLRagDecision(BaseModel):
-    intent: str = Field("What data to retrieve from SQL eg: 'top 5 customers by revenue', last sales figures etc",description="SQL retrieval intent")
+    intent: str = Field(description="SQL retrieval intent eg: 'top 5 customers by revenue', last sales figures etc")
     tables_needed: Optional[List[str]] = Field(None,description="List of database tables needed for the query")
     aggregations: Optional[List[str]] = Field(None,description="List of aggregations needed eg: SUM, AVG, COUNT")
     time_range: Optional[Dict[str, str]] = Field(None,description="Time range for data retrieval eg: {'start_date': '2023-01-01', 'end_date': '2023-12-31'}")
-    limiit: int = Field(1000,ge = 1,le = 10000,description="Maximum number of records to retrieve")
+    limit: int = Field(1000,ge=1,le=10000,description="Maximum number of records to retrieve")
     requires_join: bool = Field(False,description="Whether joins between tables are required")
 
 """
@@ -243,7 +246,10 @@ Clarrification Descisions
 """
 
 class ClarificationDecision(BaseModel):
-    pass
+    reason: str = Field(description="Reason why clarification is needed")
+    ambiguities: Optional[List[str]] = Field(None,description="List of ambiguous aspects in the user's query that need clarification")
+    questions: List[str] = Field(description="List of clarification questions to ask the user",min_items=1,max_items=3)
+    suggested_options: Optional[List[str]] = Field(None,description="Suggested options for the user to choose from if applicable")
 
 """
 ////////////////////////
@@ -251,16 +257,31 @@ Memory Descisions
 ////////////////////////
 """
 class MemoryDecision(BaseModel):
-    pass
-
+    """Details about memory requirements for follow-up interactions"""
+    purpose: Optional[str] = Field(default="report_customization", description="High-level purpose/namespace for this memory (e.g., 'report_customization')")
+    followup_details: Optional[str] = Field(None,description="Details about the anticipated follow-up interactions")
+    context_to_preserve: Optional[List[str]] = Field(None,description="Key context elements to preserve between turns eg: ['user_preferences', 'previous_queries', 'report_state']")
+    custom_report_memory: Optional[str] = Field(None,description="Custom memory requirements for report generation if any")
 """ 
 ////////////////////////
 Execution Descisions
 ////////////////////////
 """
 
-class ExecutionDecision(BaseModel):
-    pass
+class ExecutionPlan(BaseModel):
+    """
+    Complete execution plan combining all decisions
+    Generated by orchestrator after LLM routing decision
+    """
+    
+    routing_decision: RoutingDecision = Field(description="Main routing decision")
+    static_rag: Optional[StaticRagDecision] = Field(None,description="Static RAG retrieval details")
+    sql_rag: Optional[SQLRagDecision] = Field(None,description="SQL RAG retrieval details")
+    report: Optional[ReportDecision] = Field(None,description="Report generation details")
+    clarification: Optional[ClarificationDecision] = Field(None,description="Clarification details if needed")
+    memory: Optional[MemoryDecision] = Field(None,description="Memory management details for follow-up interactions")
+    estimated_execution_time: float = Field(description="Estimated time to execute (seconds)")
+    
 
 """
 ////////////////////////
@@ -269,7 +290,65 @@ Descision validation
 """
 
 class DecisionValidator:
-    pass
+    """Validate LLM routing decisions"""
+    
+    @staticmethod
+    def validate_routing_decision(decision: RoutingDecision) -> tuple[bool, List[str]]:
+        """
+        Validate routing decision
+        
+        Returns:
+            (is_valid, error_messages)
+        """
+        errors = []
+        
+        # Check RAG consistency
+        if decision.rag_type == RagType.NONE and decision.should_use_rag():
+            errors.append("rag_type is NONE but RAG flags are set")
+        
+        # Check confidence level
+        if decision.response_confidence == ResponseConfidence.LOW:
+            errors.append("Low confidence decision - may need human review")
+        
+        # Check if clarification is properly handled
+        if decision.requires_clarification and not decision.clarification_questions:
+            errors.append("requires_clarification=True but no questions provided")
+        
+        # Check report settings
+        if decision.needs_report and decision.report_type == ReportType.NONE:
+            errors.append("needs_report=True but report_type is NONE")
+        
+        return (len(errors) == 0, errors)
+    
+    @staticmethod
+    def validate_execution_plan(plan: ExecutionPlan) -> tuple[bool, List[str]]:
+        """
+        Validate complete execution plan
+        
+        Returns:
+            (is_valid, error_messages)
+        """
+        errors = []
+        
+        # Validate routing decision first
+        is_valid, routing_errors = DecisionValidator.validate_routing_decision(
+            plan.routing_decision
+        )
+        errors.extend(routing_errors)
+        
+        # Check if required sub-decisions are present
+        if plan.routing_decision.needs_static_rag and not plan.static_rag:
+            errors.append("Missing static_rag decision")
+        
+        if plan.routing_decision.needs_sql_rag and not plan.sql_rag:
+            errors.append("Missing sql_rag decision")
+        
+        if plan.routing_decision.needs_report and not plan.report:
+            errors.append("Missing report decision")
+        
+        return (len(errors) == 0, errors)
+
+
 
 """
 ////////////////////////
@@ -277,9 +356,54 @@ Helper functions
 ////////////////////////
 """
 
-def simple_routing_decision():
-    pass
+def create_simple_routing_decision(
+    query: str,
+    use_static: bool = False,
+    use_sql: bool = False,
+    generate_report: bool = False
+) -> RoutingDecision:
+    """
+    Helper function to create simple routing decisions
+    
+    Useful for testing or overriding LLM decisions
+    """
+    
+    # Determine RAG type
+    if use_static and use_sql:
+        rag_type = RagType.BOTH
+    elif use_static:
+        rag_type = RagType.Static
+    elif use_sql:
+        rag_type = RagType.SQL
+    else:
+        rag_type = RagType.NONE
+    
+    # Determine response mode
+    if generate_report:
+        response_mode = ResponseMode.REPORT
+    elif use_static or use_sql:
+        response_mode = ResponseMode.SEARCH_THEN_ANSWER
+    else:
+        response_mode = ResponseMode.DIRECT
+    
+    return RoutingDecision(
+        rag_type=rag_type,
+        needs_static_rag=use_static,
+        needs_sql_rag=use_sql,
+        static_rag_query=query if use_static else None,
+        sql_intent=query if use_sql else None,
+        needs_report=generate_report,
+        report_type=ReportType.DEFAULT if generate_report else ReportType.NONE,
+        response_mode=response_mode,
+        can_provide_direct_answer=not (use_static or use_sql),
+        requires_clarification=False,
+        query_intent=QueryIntent.FACTUAL,
+        response_confidence=ResponseConfidence.HIGH,
+        reasoning="Manually created decision",
+        memory_requirement=MemoryRequirement.SESSION,
+        follow_up_needed=False
+    )
 
 
 
-
+__all__ = ["RoutingDecision","StaticRagDecision","SQLRagDecision","ReportDecision","ClarificationDecision","MemoryDecision","ExecutionPlan","DecisionValidator","create_simple_routing_decision"]

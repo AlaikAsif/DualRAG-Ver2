@@ -1,0 +1,1 @@
+{"text": "this is a sample document it contains a few sentences about a single topic we will chunk this and embed here is a second paragraph that changes topic it should likely become a new chunk", "metadata": {"source": "sample", "chunk_index": 0}}

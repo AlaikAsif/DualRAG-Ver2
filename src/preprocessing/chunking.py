@@ -1,6 +1,6 @@
 # Text chunking strategies
 from .cleaning import TextCleaner
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 from sklearn.metrics.pairwise import cosine_similarity
 from sentence_transformers import SentenceTransformer
 import numpy as np
@@ -36,7 +36,18 @@ class Chunker:
         if not sentences:
             return []
         
-        # Get embeddings for all sentences
+        # Get embeddings for all sentences (deferred import to avoid heavy
+        # dependency costs at module-import time). If sentence-transformers
+        # is not installed or fails to import, raise a clear error so calling
+        # code can fallback to another strategy.
+        try:
+            from sentence_transformers import SentenceTransformer
+        except Exception as e:
+            raise ImportError(
+                "sentence-transformers is required for semantic chunking but failed to import. "
+                "Install it or use overlapping/context-aware chunking instead."
+            ) from e
+
         model = SentenceTransformer("all-MiniLM-L6-v2")
         embeddings = model.encode(sentences)
         

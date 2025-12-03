@@ -1,8 +1,7 @@
 # PDF/DOCX document loaders
-from langchain.document_loaders import PyPDFLoader, Docx2txtLoader
+from langchain_community.document_loaders import PyPDFLoader, Docx2txtLoader
 import os
 from pathlib import Path
-from .cleaning import TextCleaner
 from langdetect import detect
 
 class Loader:

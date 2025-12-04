@@ -88,13 +88,70 @@ class Retriever:
     @classmethod
     def load_local(cls, index_path: Optional[str] = None) -> "Retriever":
         vs = VectorStore()
-        index_path = index_path or os.path.join("data", "vectors", "static", "index", "faiss_index.bin")
+        # Default to project's static index directory if none provided
+        index_path = index_path or os.path.join("data", "vectors", "static", "index")
+
+        # If a directory was passed (or defaulted), look for common index filenames
+        if os.path.isdir(index_path):
+            candidates = [
+                os.path.join(index_path, "faiss_index.bin"),
+                os.path.join(index_path, "index.faiss"),
+                os.path.join(index_path, "index")
+            ]
+            found = None
+            for cand in candidates:
+                if os.path.exists(cand):
+                    found = cand
+                    break
+            if found is None:
+                raise FileNotFoundError(f"No FAISS index file found in directory {index_path}")
+            index_path = found
+
+        # If a file path was provided but doesn't exist, attempt to resolve common names in same folder
+        if not os.path.exists(index_path):
+            parent = os.path.dirname(index_path)
+            if parent and os.path.isdir(parent):
+                for fn in ("faiss_index.bin", "index.faiss", "index"):
+                    cand = os.path.join(parent, fn)
+                    if os.path.exists(cand):
+                        index_path = cand
+                        break
+
         if not os.path.exists(index_path):
             raise FileNotFoundError(f"Vector store index not found at {index_path}")
 
         index = faiss.read_index(index_path)
+
+        # Attempt to reconstruct docstore and index_to_docstore_id mapping from exported documents
+        index_to_docstore_id = {}
+        try:
+            persist_dir = os.path.dirname(index_path)
+            docs_fp = os.path.join(persist_dir, "documents.jsonl")
+            if os.path.exists(docs_fp):
+                with open(docs_fp, "r", encoding="utf-8") as fh:
+                    for i, line in enumerate(fh):
+                        if not line.strip():
+                            continue
+                        obj = __import__("json").loads(line)
+                        doc_id = str(i)
+                        try:
+                            vs.docstore._dict[doc_id] = {"text": obj.get("text"), "metadata": obj.get("metadata")}
+                        except Exception:
+                            try:
+                                vs.docstore.store[doc_id] = {"text": obj.get("text"), "metadata": obj.get("metadata")}
+                            except Exception:
+                                pass
+                        index_to_docstore_id[i] = doc_id
+        except Exception:
+            index_to_docstore_id = {}
+
         # Construct FAISS adapter; pass embedding function for compatibility when needed
-        fc = FAISS(embedding_function=vs.embedding_model.embed, index=index, docstore=vs.docstore)
+        try:
+            fc = FAISS(embedding_function=getattr(vs.embedding_model, "embed", vs.embedding_model), index=index, docstore=vs.docstore, index_to_docstore_id=index_to_docstore_id)
+        except TypeError:
+            # adapter signature may differ across versions; try without index_to_docstore_id
+            fc = FAISS(embedding_function=getattr(vs.embedding_model, "embed", vs.embedding_model), index=index, docstore=vs.docstore)
+
         return cls(vector_store=fc, embedding_model=vs.embedding_model)
 
     def similarity_search_documents(self, query: str, k: int = 10) -> List[Dict[str, Any]]:
@@ -118,16 +175,85 @@ class Retriever:
                 })
             return docs
         except Exception:
-            # fallback to similarity_search (may not provide scores)
-            items = self.vector_store.similarity_search(query, k=k)
-            for doc in items:
-                docs.append({
-                    "id": doc.metadata.get("id") if doc.metadata else None,
-                    "text": getattr(doc, "page_content", str(doc)),
-                    "metadata": doc.metadata,
-                    "score": None,
-                })
-            return docs
+            # Try adapter's similarity_search first (may not provide scores)
+            try:
+                items = self.vector_store.similarity_search(query, k=k)
+                for doc in items:
+                    docs.append({
+                        "id": doc.metadata.get("id") if doc.metadata else None,
+                        "text": getattr(doc, "page_content", str(doc)),
+                        "metadata": doc.metadata,
+                        "score": None,
+                    })
+                return docs
+            except Exception:
+                # Final fallback: perform a raw FAISS search using the underlying index
+                try:
+                    # compute query vector via embedding model
+                    qvec = np.asarray(self.embedding_model.embed([query]))
+                    if qvec.ndim == 2 and qvec.shape[0] == 1:
+                        q = qvec[0]
+                    else:
+                        q = np.asarray(qvec).flatten()
+                    # normalize
+                    q = q.astype(np.float32)
+                    nrm = np.linalg.norm(q)
+                    if nrm == 0:
+                        nrm = 1e-12
+                    q = (q / nrm).reshape(1, -1).astype(np.float32)
+
+                    index = getattr(self.vector_store, "index", None)
+                    if index is None:
+                        # try to load from default persisted location
+                        idx_dir = os.path.join("data", "vectors", "static", "index")
+                        for fn in ("faiss_index.bin", "index.faiss", "index"):
+                            p = os.path.join(idx_dir, fn)
+                            if os.path.exists(p):
+                                index = faiss.read_index(p)
+                                break
+
+                    if index is None:
+                        return []
+
+                    scores, ids = index.search(q, k)
+                    ids = ids.flatten().tolist()
+                    scores = scores.flatten().tolist()
+
+                    # try to map ids to documents using docstore and adapter mapping
+                    index_to_docstore_id = getattr(self.vector_store, "index_to_docstore_id", None)
+                    ds = getattr(self.vector_store, "docstore", None)
+
+                    for iid, score in zip(ids, scores):
+                        if iid < 0:
+                            continue
+                        doc_id = None
+                        if index_to_docstore_id:
+                            doc_id = index_to_docstore_id.get(int(iid))
+                        if ds is not None:
+                            # try common docstore backing maps
+                            backing = getattr(ds, "_dict", None) or getattr(ds, "store", None)
+                            if doc_id is None:
+                                doc_id = str(int(iid))
+                            try:
+                                entry = backing.get(doc_id) if backing else None
+                                text = entry.get("text") if entry else None
+                                meta = entry.get("metadata") if entry else None
+                            except Exception:
+                                text = None
+                                meta = None
+                        else:
+                            text = None
+                            meta = None
+
+                        docs.append({
+                            "id": doc_id,
+                            "text": text or "",
+                            "metadata": meta,
+                            "score": float(score),
+                        })
+                    return docs
+                except Exception:
+                    return []
 
     def mmr_rerank(self, query: str, initial_k: int = 50, top_k: int = 5, lambda_param: float = 0.5) -> List[Dict[str, Any]]:
         """Perform MMR reranking: get `initial_k` candidates then select `top_k` diverse & relevant ones.

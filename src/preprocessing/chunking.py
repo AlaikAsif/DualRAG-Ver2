@@ -1,9 +1,10 @@
-# Text chunking strategies
-from .cleaning import TextCleaner
+"""Text chunking strategies
+
+This module defers heavy imports (sentence-transformers, sklearn) into
+the functions that require them so importing the `preprocessing` package
+remains lightweight and avoids accidental circular import costs.
+"""
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from sklearn.metrics.pairwise import cosine_similarity
-from sentence_transformers import SentenceTransformer
-import numpy as np
 import re
 
 class Chunker:
@@ -42,10 +43,11 @@ class Chunker:
         # code can fallback to another strategy.
         try:
             from sentence_transformers import SentenceTransformer
+            from sklearn.metrics.pairwise import cosine_similarity
         except Exception as e:
             raise ImportError(
-                "sentence-transformers is required for semantic chunking but failed to import. "
-                "Install it or use overlapping/context-aware chunking instead."
+                "sentence-transformers and sklearn are required for semantic chunking but failed to import. "
+                "Install them or use overlapping/context-aware chunking instead."
             ) from e
 
         model = SentenceTransformer("all-MiniLM-L6-v2")
@@ -56,10 +58,9 @@ class Chunker:
         
         for i in range(1, len(sentences)):
             # Compare current sentence with previous
-            similarity = cosine_similarity(
-                [embeddings[i-1]], 
-                [embeddings[i]]
-            )[0][0]
+            similarity = cosine_similarity([
+                embeddings[i-1]
+            ], [embeddings[i]])[0][0]
             
             if similarity >= similarity_threshold:
                 # Similar topics → same chunk

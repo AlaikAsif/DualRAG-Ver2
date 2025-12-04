@@ -8,12 +8,12 @@ class Loader:
     @staticmethod
     def load(file_path: str):
         if file_path.endswith(".pdf"):
-            Loader = PyPDFLoader(file_path)
+            loader = PyPDFLoader(file_path)
         elif file_path.endswith(".docx"):
-            Loader = Docx2txtLoader(file_path)
+            loader = Docx2txtLoader(file_path)
         else:
             raise ValueError("Unsupported file format")
-        return Loader.load()
+        return loader.load()
     @staticmethod
     def loop_file_paths(directory_path: str = None):
         if directory_path is None:

@@ -65,4 +65,5 @@ class TextCleaner:
  
         return cleaned_documents
     
-    __all__ = ["TextCleaner"]
+
+__all__ = ["TextCleaner"]

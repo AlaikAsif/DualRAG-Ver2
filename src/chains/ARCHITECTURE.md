@@ -36,11 +36,23 @@ The `chains/` module contains the core LLM interaction logic and chain orchestra
 - Implements turn-taking logic
 - Manages chat history
 
-### 4. **static_rag_chain.py**
-- Reformulates user queries for document search
-- Retrieves relevant documents from vector store
-- Ranks retrieved documents
-- Passes results to response synthesizer
+### 4. **static_rag_chain.py** ✨ NEW
+- **Full static RAG pipeline** for document-augmented response generation
+- **Workflow**:
+  1. Load persisted FAISS vector index from disk
+  2. Retrieve relevant documents using MMR (Maximal Marginal Relevance) reranking
+  3. Format retrieved context for LLM consumption
+  4. Generate response with strict RAG prompts (CoT-enabled, no hallucination)
+  5. Track metrics and log execution details
+- **Key Features**:
+  - MMR reranking for diverse document selection
+  - Configurable retrieval_k (1-20) and initial_k for reranking
+  - Strict RAG prompts with XML-tagged context boundaries
+  - Automatic LLM retry with exponential backoff
+  - Source document tracking with metadata preservation
+  - Batch retrieval support for multiple queries
+  - Pydantic schema validation (RAGRequest, RAGResponse)
+- **Integration**: Returns RAGResponse with response text + source documents + retrieval metrics
 
 ### 5. **sql_rag_chain.py**
 - Converts natural language to SQL queries
@@ -91,11 +103,44 @@ Final Response to User
 4. **Error Handling**: Each chain has built-in fallback mechanisms
 
 ## Dependencies
-- LangChain (for chain management)
-- Ollama (LLM provider)
-- Prompts module (for prompt templates)
+- **LangChain** (chain management)
+- **Ollama** (LLM provider)
+- **Prompts module** (prompt templates)
+- **Schemas module** (Pydantic models for type safety)
+- **Monitoring module** (logging, tracing, metrics)
+- **Utils module** (config, retry logic)
+- **RAG modules** (static/sql retrieval)
+- **FAISS** (vector search for static RAG)
+- **sentence-transformers** (embeddings for static RAG)
 
 ## Configuration
 - LLM model selection
 - Temperature and other LLM parameters
 - Chain-specific settings (timeouts, retries)
+
+## Implementation Status
+
+### ✅ Completed & Tested
+- **static_rag_chain.py** - Full implementation with FAISS integration, MMR reranking, strict prompts
+- **llm.py** - Ollama initialization and connection management
+- **orchestrator.py** - Multi-stage routing with fallback logic
+- **Monitoring Infrastructure** - Logger, tracer, metrics collection
+- **Pydantic Schemas** - Type validation for all data structures
+- **Integration Tests** - Full end-to-end pipeline validation (9/9 tests passing)
+
+### 🔄 In Progress / Ready for Integration
+- **chat_chain.py** - Conversation handling (needs memory integration)
+- **sql_rag_chain.py** - Database query handling (schema management ready)
+- **report_chain.py** - Report generation framework
+- **followup_chain.py** - Follow-up question handling (context preservation)
+- **response_synthesizer.py** - Result aggregation and formatting
+
+### Data Structures
+All chains use **Pydantic models** for input/output validation:
+- `RAGRequest` / `RAGResponse` (static RAG)
+- `ChatRequest` / `ChatResponse` (conversations)
+- `SQLRagRequest` / `SQLRagResponse` (database queries)
+- `FollowupRequest` / `FollowupResponse` (context-aware follow-ups)
+- `ReportGenerationRequest` / `ReportGenerationResponse` (reports)
+- `RoutingDecision` (orchestrator decisions)
+

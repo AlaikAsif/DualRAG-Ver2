@@ -64,15 +64,12 @@ class QueryExecutor:
         start_time = time.time()
         
         try:
-            # Safety checks
             self._validate_query(sql_query.query_string)
             
-            # Add LIMIT clause if not present to prevent result explosion
             query = self._add_result_limit(sql_query.query_string)
             
             logger.info(f"Executing query: {query[:100]}...")
             
-            # Execute query via connector
             result = self.connector.execute_query(
                 query,
                 parameters=sql_query.parameters,
@@ -80,7 +77,6 @@ class QueryExecutor:
                 fetch_all=True
             )
             
-            # Create SQLResult from connector result
             execution_time_ms = (time.time() - start_time) * 1000
             
             sql_result = SQLResult(
@@ -93,7 +89,6 @@ class QueryExecutor:
                 error_message=result.get('error_message')
             )
             
-            # Log successful execution
             if sql_result.status == 'success':
                 logger.info(
                     f"Query executed successfully: {sql_result.row_count} rows "
@@ -102,7 +97,6 @@ class QueryExecutor:
             else:
                 logger.error(f"Query execution failed: {sql_result.error_message}")
             
-            # Track execution history
             self._track_execution(sql_query.query_string, sql_result)
             
             return sql_result
@@ -152,8 +146,6 @@ class QueryExecutor:
         """
         query_upper = query.strip().upper()
         
-        # Check for SELECT-only if enabled
-        # Allow: SELECT, WITH (CTEs), EXPLAIN, ANALYZE, SHOW, DESCRIBE
         if self.enable_select_only:
             allowed_starts = ('SELECT', 'WITH', 'EXPLAIN', 'ANALYZE', 'SHOW', 'DESCRIBE', 'DESC')
             if not any(query_upper.startswith(start) for start in allowed_starts):
@@ -162,7 +154,6 @@ class QueryExecutor:
                     "INSERT, UPDATE, DELETE, DROP are not permitted."
                 )
         
-        # Check for dangerous keywords that suggest data modification
         dangerous_keywords = [
             'DROP', 'DELETE', 'INSERT', 'UPDATE', 'ALTER', 'CREATE',
             'TRUNCATE', 'GRANT', 'REVOKE', 'VACUUM'
@@ -175,19 +166,17 @@ class QueryExecutor:
                     "Only read-only queries are allowed."
                 )
         
-        # Check for SQL injection patterns (basic detection)
         injection_patterns = [
-            r"'?\s*;\s*--",  # Comment after semicolon
-            r"'?\s*;\s*\/\*",  # Block comment after semicolon
-            r"UNION\s+SELECT",  # UNION-based injection (allowed for joins, but log it)
-            r"OR\s+'?1'?\s*=\s*'?1'?",  # Always-true condition
+            r"'?\s*;\s*--",
+            r"'?\s*;\s*\/\*",
+            r"UNION\s+SELECT",
+            r"OR\s+'?1'?\s*=\s*'?1'?",
         ]
         
         for pattern in injection_patterns:
             if re.search(pattern, query_upper):
                 logger.warning(f"Suspicious SQL pattern detected in query: {pattern}")
         
-        # Query must not be empty
         if not query_upper or query_upper.isspace():
             raise ValueError("Query cannot be empty")
         
@@ -205,14 +194,11 @@ class QueryExecutor:
         """
         query_upper = query.strip().upper()
         
-        # Check if query already has LIMIT
         if 'LIMIT' in query_upper:
-            # Extract existing limit and ensure it doesn't exceed max_rows
             match = re.search(r'LIMIT\s+(\d+)', query_upper)
             if match:
                 existing_limit = int(match.group(1))
                 if existing_limit > self.max_rows:
-                    # Replace with enforced limit
                     query = re.sub(
                         r'LIMIT\s+\d+',
                         f'LIMIT {self.max_rows}',
@@ -222,9 +208,8 @@ class QueryExecutor:
                     logger.info(f"Query limit reduced from {existing_limit} to {self.max_rows}")
             return query
         
-        # Add LIMIT if not present
         if query.rstrip().endswith(';'):
-            query = query.rstrip()[:-1]  # Remove trailing semicolon
+            query = query.rstrip()[:-1]
         
         limited_query = f"{query.strip()} LIMIT {self.max_rows}"
         logger.debug(f"Added LIMIT {self.max_rows} to query")
@@ -232,15 +217,9 @@ class QueryExecutor:
         return limited_query
     
     def _track_execution(self, query: str, result: SQLResult) -> None:
-        """
-        Track execution history for auditing and monitoring.
-        
-        Args:
-            query: SQL query that was executed
-            result: Result from execution
-        """
+        """Track execution history for auditing and monitoring."""
         execution_record = {
-            "query": query[:200],  # Store first 200 chars
+            "query": query[:200],
             "status": result.status,
             "row_count": result.row_count,
             "execution_time_ms": result.execution_time_ms,
@@ -250,7 +229,6 @@ class QueryExecutor:
         
         self._execution_history.append(execution_record)
         
-        # Keep only last 100 executions in memory
         if len(self._execution_history) > 100:
             self._execution_history = self._execution_history[-100:]
     

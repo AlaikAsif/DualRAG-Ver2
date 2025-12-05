@@ -302,19 +302,15 @@ class DecisionValidator:
         """
         errors = []
         
-        # Check RAG consistency
         if decision.rag_type == RagType.NONE and decision.should_use_rag():
             errors.append("rag_type is NONE but RAG flags are set")
         
-        # Check confidence level
         if decision.response_confidence == ResponseConfidence.LOW:
             errors.append("Low confidence decision - may need human review")
         
-        # Check if clarification is properly handled
         if decision.requires_clarification and not decision.clarification_questions:
             errors.append("requires_clarification=True but no questions provided")
         
-        # Check report settings
         if decision.needs_report and decision.report_type == ReportType.NONE:
             errors.append("needs_report=True but report_type is NONE")
         
@@ -336,7 +332,6 @@ class DecisionValidator:
         )
         errors.extend(routing_errors)
         
-        # Check if required sub-decisions are present
         if plan.routing_decision.needs_static_rag and not plan.static_rag:
             errors.append("Missing static_rag decision")
         
@@ -368,7 +363,6 @@ def create_simple_routing_decision(
     Useful for testing or overriding LLM decisions
     """
     
-    # Determine RAG type
     if use_static and use_sql:
         rag_type = RagType.BOTH
     elif use_static:
@@ -378,7 +372,6 @@ def create_simple_routing_decision(
     else:
         rag_type = RagType.NONE
     
-    # Determine response mode
     if generate_report:
         response_mode = ResponseMode.REPORT
     elif use_static or use_sql:

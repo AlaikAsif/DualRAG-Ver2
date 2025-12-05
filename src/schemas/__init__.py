@@ -15,14 +15,12 @@ are also exported as submodules and may contain additional types.
 """
 
 from .decisions import (
-	# Enums
 	RagType,
 	ReportType,
 	QueryIntent,
 	ResponseConfidence,
 	ResponseMode,
 	MemoryRequirement,
-	# Core models
 	RoutingDecision,
 	StaticRagDecision,
 	SQLRagDecision,
@@ -30,7 +28,6 @@ from .decisions import (
 	ClarificationDecision,
 	MemoryDecision,
 	ExecutionPlan,
-	# Utilities
 	DecisionValidator,
 	create_simple_routing_decision,
 )
@@ -43,14 +40,12 @@ from . import report as report
 from . import sql as sql
 
 __all__ = [
-	# enums
 	"RagType",
 	"ReportType",
 	"QueryIntent",
 	"ResponseConfidence",
 	"ResponseMode",
 	"MemoryRequirement",
-	# models
 	"RoutingDecision",
 	"StaticRagDecision",
 	"SQLRagDecision",
@@ -58,10 +53,8 @@ __all__ = [
 	"ClarificationDecision",
 	"MemoryDecision",
 	"ExecutionPlan",
-	# utilities
 	"DecisionValidator",
 	"create_simple_routing_decision",
-	# submodules
 	"decisions",
 	"chat",
 	"followup",

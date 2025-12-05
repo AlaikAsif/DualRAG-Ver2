@@ -19,10 +19,8 @@ import faiss
 
 
 def _cosine_similarity_matrix(a: np.ndarray, b: np.ndarray) -> np.ndarray:
-    # a: (n, d), b: (m, d) -> returns (n, m)
     a_norm = np.linalg.norm(a, axis=1, keepdims=True)
     b_norm = np.linalg.norm(b, axis=1, keepdims=True)
-    # avoid division by zero
     a_norm[a_norm == 0] = 1e-12
     b_norm[b_norm == 0] = 1e-12
     sim = (a @ b.T) / (a_norm * b_norm.T)
@@ -47,7 +45,6 @@ def mmr_select(query_vec: np.ndarray, candidate_vecs: np.ndarray, candidate_ids:
     selected = []
     remaining = list(range(n_candidates))
 
-    # pick the most relevant as the first item
     first = int(np.argmax(sims_to_query))
     selected.append(first)
     remaining.remove(first)
@@ -56,9 +53,7 @@ def mmr_select(query_vec: np.ndarray, candidate_vecs: np.ndarray, candidate_ids:
         best_score = None
         best_idx = None
         for i in remaining:
-            # relevance to query
             rel = sims_to_query[i]
-            # similarity to already selected (for redundancy penalty)
             max_sim_to_selected = max(sims_between[i, j] for j in selected) if selected else 0.0
             score = lambda_param * rel - (1 - lambda_param) * max_sim_to_selected
             if (best_score is None) or (score > best_score):
@@ -88,10 +83,8 @@ class Retriever:
     @classmethod
     def load_local(cls, index_path: Optional[str] = None) -> "Retriever":
         vs = VectorStore()
-        # Default to project's static index directory if none provided
         index_path = index_path or os.path.join("data", "vectors", "static", "index")
 
-        # If a directory was passed (or defaulted), look for common index filenames
         if os.path.isdir(index_path):
             candidates = [
                 os.path.join(index_path, "faiss_index.bin"),
@@ -107,7 +100,6 @@ class Retriever:
                 raise FileNotFoundError(f"No FAISS index file found in directory {index_path}")
             index_path = found
 
-        # If a file path was provided but doesn't exist, attempt to resolve common names in same folder
         if not os.path.exists(index_path):
             parent = os.path.dirname(index_path)
             if parent and os.path.isdir(parent):
@@ -122,7 +114,6 @@ class Retriever:
 
         index = faiss.read_index(index_path)
 
-        # Attempt to reconstruct docstore and index_to_docstore_id mapping from exported documents
         index_to_docstore_id = {}
         try:
             persist_dir = os.path.dirname(index_path)

@@ -73,16 +73,13 @@ class SchemaRetriever:
         schema = self.schema_manager.get_schema()
         query_keywords = set(query.lower().split())
         
-        # Score tables by keyword match
         scored_tables = []
         for table in schema.tables:
-            # Score table name match
             table_name_match = sum(
                 1 for keyword in query_keywords 
                 if keyword in table.table_name.lower()
             )
             
-            # Score column name match
             column_matches = sum(
                 1 for col in table.columns 
                 for keyword in query_keywords 
@@ -94,7 +91,6 @@ class SchemaRetriever:
             if total_score >= threshold:
                 scored_tables.append((table, total_score))
         
-        # Sort by score and return top results
         scored_tables.sort(key=lambda x: x[1], reverse=True)
         relevant_tables = [table for table, _ in scored_tables[:max_tables]]
         
@@ -130,11 +126,9 @@ class SchemaRetriever:
         context_lines = []
         
         for table in schema.tables:
-            # Filter tables if specified
             if relevant_tables and table.table_name not in relevant_tables:
                 continue
             
-            # Format table with columns
             columns_str = ", ".join(
                 f"{col} ({table.column_types.get(col, 'UNKNOWN')})"
                 for col in table.columns

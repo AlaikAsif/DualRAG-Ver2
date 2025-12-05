@@ -29,11 +29,9 @@ class Config:
     
     def _load_env_overrides(self) -> None:
         """Load configuration overrides from environment variables."""
-        # Environment variables override config file values
-        # Format: APP_RAG_STATIC_INDEX_PATH=data/vectors/static/index
         for key, value in os.environ.items():
             if key.startswith("APP_"):
-                config_key = key[4:].lower()  # Remove APP_ prefix and lowercase
+                config_key = key[4:].lower()
                 self._config[config_key] = value
     
     @staticmethod
@@ -85,7 +83,6 @@ class Config:
         Returns:
             Configuration value or default
         """
-        # Handle dot notation
         keys = key.split('.')
         value = self._config
         
@@ -98,7 +95,6 @@ class Config:
             if value is None:
                 return default
         
-        # Type coercion
         if value is not None and coerce:
             if coerce == bool:
                 value = str(value).lower() in ('true', '1', 'yes', 'on')

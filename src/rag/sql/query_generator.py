@@ -56,19 +56,16 @@ class QueryGenerator:
 
         logger.info(f"Generating SQL for: {request.query[:100]}")
         
-        # Find relevant tables
         relevant_tables = self.schema_retriever.find_relevant_tables(
             request.query,
             max_tables=5
         )
         relevant_table_names = [t.table_name for t in relevant_tables]
         
-        # Generate schema context
         schema_context = self.schema_retriever.get_schema_context(
             relevant_table_names if relevant_tables else None
         )
         
-        # Build prompt with context
         prompt = self._build_prompt(
             request.query,
             schema_context,
@@ -78,23 +75,18 @@ class QueryGenerator:
         
         logger.debug(f"Generated prompt (length: {len(prompt)})")
         
-        # Generate SQL with LLM
         sql_query = self.llm_client.generate(prompt)
         
-        # Parse response
         parsed_sql = self._parse_response(sql_query)
         
-        # Extract explanation if requested
         explanation = ""
         if include_explanation:
             explanation = self._generate_explanation(parsed_sql)
         
-        # Estimate confidence
         confidence = self._estimate_confidence(parsed_sql, relevant_table_names)
         
         logger.info(f"Generated SQL: {parsed_sql[:100]}... (confidence: {confidence:.2f})")
         
-        # Create SQLQuery object
         sql_obj = SQLQuery(
             query_string=parsed_sql,
             parameters={},
@@ -164,10 +156,8 @@ class QueryGenerator:
         if response.endswith("```"):
             response = response[:-3]
         
-        # Extract first SQL statement
         response = response.strip()
         
-        # Remove trailing semicolon
         if response.endswith(";"):
             response = response[:-1]
         
@@ -194,20 +184,16 @@ class QueryGenerator:
         
         sql_upper = sql.upper()
         
-        # Check for SELECT statement
         if sql_upper.startswith("SELECT"):
             confidence += 0.2
         
-        # Check for relevant table usage
         table_count = sum(1 for table in relevant_tables if table.upper() in sql_upper)
         if table_count > 0:
             confidence += 0.15 * min(table_count / len(relevant_tables), 1.0)
         
-        # Check for FROM clause
         if "FROM" in sql_upper:
             confidence += 0.1
         
-        # Penalize for suspicious patterns
         if "--" in sql or "/*" in sql:
             confidence -= 0.1
         

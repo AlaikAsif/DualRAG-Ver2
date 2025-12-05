@@ -63,21 +63,17 @@ class SchemaEmbeddings:
         embeddings = {}
         
         for table in schema.tables:
-            # Filter if table_names specified
             if table_names and table.table_name not in table_names:
                 continue
             
-            # Check cache
             if self.cache_embeddings and table.table_name in self._table_embeddings:
                 embeddings[table.table_name] = self._table_embeddings[table.table_name]
                 continue
             
-            # Generate embedding from table description
             description = f"{table.table_name}: {', '.join(table.columns)}"
             embedding = self.embedding_model.embed(description)
             embeddings[table.table_name] = embedding
             
-            # Cache if enabled
             if self.cache_embeddings:
                 self._table_embeddings[table.table_name] = embedding
         
@@ -102,19 +98,16 @@ class SchemaEmbeddings:
         cache_key = f"{table_name}:columns"
         
         for column in table.columns:
-            # Check cache
             col_key = f"{table_name}.{column}"
             if self.cache_embeddings and col_key in self._column_embeddings:
                 embeddings[column] = self._column_embeddings[col_key]
                 continue
             
-            # Generate embedding
             col_type = table.column_types.get(column, "UNKNOWN")
             description = f"{column} ({col_type})"
             embedding = self.embedding_model.embed(description)
             embeddings[column] = embedding
             
-            # Cache if enabled
             if self.cache_embeddings:
                 self._column_embeddings[col_key] = embedding
         
@@ -139,17 +132,13 @@ class SchemaEmbeddings:
         # Get query embedding
         query_embedding = self.embedding_model.embed(query)
         
-        # Get table embeddings
         table_embeddings = self.get_table_embeddings()
         
-        # Calculate similarities
         similarities = []
         for table_name, table_embedding in table_embeddings.items():
-            # Cosine similarity
             similarity = self._cosine_similarity(query_embedding, table_embedding)
             similarities.append((table_name, similarity))
         
-        # Sort by similarity (descending) and return top_k
         similarities.sort(key=lambda x: x[1], reverse=True)
         results = similarities[:top_k]
         
@@ -176,16 +165,13 @@ class SchemaEmbeddings:
         # Get query embedding
         query_embedding = self.embedding_model.embed(query)
         
-        # Get column embeddings
         column_embeddings = self.get_column_embeddings(table_name)
         
-        # Calculate similarities
         similarities = []
         for column_name, column_embedding in column_embeddings.items():
             similarity = self._cosine_similarity(query_embedding, column_embedding)
             similarities.append((column_name, similarity))
         
-        # Sort and return top_k
         similarities.sort(key=lambda x: x[1], reverse=True)
         results = similarities[:top_k]
         

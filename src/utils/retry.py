@@ -61,13 +61,11 @@ def retry_with_backoff(
                         )
                         raise
                     
-                    # Calculate delay with exponential backoff
                     delay = min(
                         base_delay * (exponential_base ** (attempt - 1)),
                         max_delay
                     )
                     
-                    # Add jitter
                     if jitter:
                         delay = delay * (0.5 + random.random())
                     

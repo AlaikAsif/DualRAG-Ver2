@@ -56,16 +56,13 @@ class SQLConnector:
         self.pool_timeout = pool_timeout
         self.query_timeout = query_timeout
         
-        # Parse connection string
         self.host, self.port, self.database, self.user, self.password = self._parse_connection_string(
             connection_string
         )
         
-        # Initialize connection pool
         self.pool = None
         self._initialize_pool()
         
-        # Schema cache (database schema metadata)
         self._schema_cache = {}
         self._schema_cache_time = 0
         self._schema_cache_ttl = 3600  # 1 hour
@@ -173,7 +170,6 @@ class SQLConnector:
             with self.get_connection() as conn:
                 cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
                 
-                # Execute query with timeout
                 try:
                     if parameters:
                         cursor.execute(query, parameters)
@@ -189,16 +185,13 @@ class SQLConnector:
                         "error_message": str(e)
                     }
                 
-                # Fetch results
                 if fetch_all:
                     rows = cursor.fetchall()
                 else:
                     rows = [cursor.fetchone()] if cursor.rowcount > 0 else []
                 
-                # Get column names
                 column_names = [desc[0] for desc in cursor.description] if cursor.description else []
                 
-                # Convert rows to list of dicts
                 rows = [dict(row) for row in rows]
                 
                 cursor.close()
@@ -264,7 +257,6 @@ class SQLConnector:
             logger.error(f"Failed to get schema: {result['error_message']}")
             return {"tables": {}}
         
-        # Parse results into schema structure
         schema = {"tables": {}}
         for row in result['rows']:
             table_name = row['table_name']
@@ -277,7 +269,6 @@ class SQLConnector:
                 'nullable': row['is_nullable'] == 'YES'
             })
         
-        # Cache schema
         self._schema_cache = schema
         self._schema_cache_time = time.time()
         

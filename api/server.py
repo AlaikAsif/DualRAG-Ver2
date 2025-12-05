@@ -7,14 +7,16 @@ from fastapi.middleware.cors import CORSMiddleware
 import logging
 
 from src.chains.sql_rag_chain import SQLRAGChain
+from src.chains.static_rag_chain import StaticRAGChain
 from src.utils.config import Config
 from api.middleware.error_handling import error_handler_middleware
 from api.middleware.logging import logging_middleware
-from api.routes import health, sql_rag, chat, reports
+from api.routes import health, sql_rag, static_rag, chat, reports
 
 logger = logging.getLogger(__name__)
 
 _sql_rag_chain = None
+_static_rag_chain = None
 
 
 @asynccontextmanager
@@ -41,6 +43,15 @@ async def lifespan(app: FastAPI):
         logger.error(f"Failed to initialize SQL RAG Chain: {e}")
         _sql_rag_chain = None
     
+    try:
+        logger.info("Initializing Static RAG Chain...")
+        _static_rag_chain = StaticRAGChain()
+        static_rag.set_static_rag_chain(_static_rag_chain)
+        logger.info("Static RAG Chain initialized successfully")
+    except Exception as e:
+        logger.error(f"Failed to initialize Static RAG Chain: {e}")
+        _static_rag_chain = None
+    
     yield
     
     logger.info("Shutting down DualRAG API server...")
@@ -50,6 +61,13 @@ async def lifespan(app: FastAPI):
             logger.info("SQL RAG Chain closed")
         except Exception as e:
             logger.error(f"Error closing SQL RAG Chain: {e}")
+    if _static_rag_chain:
+        try:
+            if hasattr(_static_rag_chain, 'close'):
+                _static_rag_chain.close()
+            logger.info("Static RAG Chain closed")
+        except Exception as e:
+            logger.error(f"Error closing Static RAG Chain: {e}")
 
 
 def create_app() -> FastAPI:
@@ -75,6 +93,7 @@ def create_app() -> FastAPI:
     
     app.include_router(health.router)
     app.include_router(sql_rag.router)
+    app.include_router(static_rag.router)
     app.include_router(chat.router)
     app.include_router(reports.router)
     

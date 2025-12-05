@@ -1,7 +1,7 @@
 """Authentication utilities."""
 
 from fastapi import Depends, HTTPException, status
-from fastapi.security import HTTPBearer, HTTPAuthCredentials
+from fastapi.security import HTTPBearer
 import logging
 
 logger = logging.getLogger(__name__)
@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 security = HTTPBearer(auto_error=False)
 
 
-async def verify_token(credentials: HTTPAuthCredentials = Depends(security)):
+async def verify_token(credentials = Depends(security)):
     """Verify JWT token from Authorization header."""
     if credentials is None:
         return None

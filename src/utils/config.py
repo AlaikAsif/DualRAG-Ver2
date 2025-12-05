@@ -54,13 +54,14 @@ class Config:
             with open(path, 'r') as f:
                 if path.suffix == '.json':
                     config_dict = json.load(f)
-                elif path.suffix in ['.env', '.txt']:
+                elif path.suffix in ['.env', '.txt', '']:
                     config_dict = {}
                     for line in f:
                         line = line.strip()
                         if line and not line.startswith('#'):
-                            key, value = line.split('=', 1)
-                            config_dict[key.strip()] = value.strip()
+                            if '=' in line:
+                                key, value = line.split('=', 1)
+                                config_dict[key.strip()] = value.strip()
                 else:
                     raise ValueError(f"Unsupported config file format: {path.suffix}")
             

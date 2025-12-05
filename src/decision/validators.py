@@ -4,7 +4,7 @@ import logging
 from typing import Dict, Any, Tuple
 from pydantic import ValidationError
 
-from src.schemas.decisions import RoutingDecision, RAGType, ResponseMode
+from src.schemas.decisions import RoutingDecision, RagType, ResponseMode
 from src.monitoring.logger import get_logger
 
 logger = get_logger(__name__)
@@ -45,11 +45,21 @@ class RoutingValidator:
                 return False, None, error_msg
             
             # Validate rag_type enum
-            rag_type_str = decision_data.get("rag_type", "").upper()
+            rag_type_str = decision_data.get("rag_type", "").lower()
             try:
-                rag_type = RAGType(rag_type_str)
+                # Handle both 'static' and 'Static' variants
+                if rag_type_str == "static":
+                    rag_type = RagType.Static
+                elif rag_type_str == "sql":
+                    rag_type = RagType.SQL
+                elif rag_type_str == "both":
+                    rag_type = RagType.BOTH
+                elif rag_type_str == "none":
+                    rag_type = RagType.NONE
+                else:
+                    raise ValueError(f"Invalid rag_type: {rag_type_str}")
             except ValueError:
-                error_msg = f"Invalid rag_type: {rag_type_str}. Must be one of {[e.value for e in RAGType]}"
+                error_msg = f"Invalid rag_type: {rag_type_str}. Must be one of {[e.value for e in RagType]}"
                 logger.warning(f"Validation failed: {error_msg}")
                 return False, None, error_msg
             
@@ -74,13 +84,13 @@ class RoutingValidator:
             needs_sql_rag = bool(decision_data.get("needs_sql_rag", False))
             
             # Logical validation: if needs_static_rag/sql_rag is true, rag_type must match
-            if needs_static_rag and rag_type != RAGType.STATIC:
-                logger.warning("needs_static_rag=true but rag_type != STATIC, correcting")
-                rag_type = RAGType.STATIC
+            if needs_static_rag and rag_type != RagType.Static:
+                logger.warning("needs_static_rag=true but rag_type != Static, correcting")
+                rag_type = RagType.Static
             
-            if needs_sql_rag and rag_type != RAGType.SQL:
+            if needs_sql_rag and rag_type != RagType.SQL:
                 logger.warning("needs_sql_rag=true but rag_type != SQL, correcting")
-                rag_type = RAGType.SQL
+                rag_type = RagType.SQL
             
             # Build validated decision
             decision = RoutingDecision(

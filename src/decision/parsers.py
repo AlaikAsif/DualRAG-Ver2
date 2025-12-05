@@ -192,10 +192,10 @@ def _create_fallback_decision_object() -> RoutingDecision:
     Returns:
         Default RoutingDecision
     """
-    from src.schemas.decisions import RAGType, ResponseMode
+    from src.schemas.decisions import RagType, ResponseMode
     
     return RoutingDecision(
-        rag_type=RAGType.NONE,
+        rag_type=RagType.NONE,
         needs_static_rag=False,
         needs_sql_rag=False,
         report_type=None,

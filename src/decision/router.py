@@ -5,7 +5,7 @@ from typing import Optional, Dict, Any
 from enum import Enum
 
 from src.chains.llm import get_llm
-from src.schemas.decisions import RoutingDecision, RAGType, ResponseMode
+from src.schemas.decisions import RoutingDecision, RagType, ResponseMode
 from src.monitoring.logger import get_logger
 
 logger = get_logger(__name__)
@@ -140,9 +140,9 @@ Rules:
             
             # Compare against template embeddings
             templates = {
-                RAGType.STATIC: "Find information from documents about {topic}",
-                RAGType.SQL: "Query the database for {metric} data",
-                RAGType.NONE: "Have a general conversation",
+                RagType.Static: "Find information from documents about {topic}",
+                RagType.SQL: "Query the database for {metric} data",
+                RagType.NONE: "Have a general conversation",
             }
             
             # Find most similar template
@@ -157,8 +157,8 @@ Rules:
             
             return RoutingDecision(
                 rag_type=best_rag_type,
-                needs_static_rag=(best_rag_type == RAGType.STATIC),
-                needs_sql_rag=(best_rag_type == RAGType.SQL),
+                needs_static_rag=(best_rag_type == RagType.Static),
+                needs_sql_rag=(best_rag_type == RagType.SQL),
                 report_type=None,
                 response_mode=ResponseMode.CONTEXTUAL,
                 reasoning=f"Semantic similarity routing (max: {confidence:.2%})",
@@ -177,7 +177,7 @@ Rules:
             Default RoutingDecision
         """
         return RoutingDecision(
-            rag_type=RAGType.NONE,
+            rag_type=RagType.NONE,
             needs_static_rag=False,
             needs_sql_rag=False,
             report_type=None,

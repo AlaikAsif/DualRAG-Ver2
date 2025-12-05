@@ -6,7 +6,8 @@ from datetime import datetime
 from dataclasses import dataclass
 
 from src.monitoring.logger import get_logger
-from src.schemas.report import ReportType, ReportFormat
+from src.schemas.decisions import ReportType
+from src.schemas.report import ReportFormat
 
 logger = get_logger(__name__)
 
@@ -54,7 +55,7 @@ class ReportGenerator:
         self,
         title: str,
         data: Dict[str, Any],
-        report_type: ReportType = ReportType.SUMMARY,
+        report_type: ReportType = ReportType.DEFAULT,
         customization: Optional[Dict[str, Any]] = None,
         template_name: str = "default"
     ) -> ReportData:
@@ -148,12 +149,12 @@ class ReportGenerator:
             aggregated["summary"]["data_sources"] = data.get("sources", [])
         
         # Extract insights for different report types
-        if report_type == ReportType.SUMMARY:
+        if report_type == ReportType.DEFAULT:
             aggregated["insights"] = self._extract_summary_insights(data)
-        elif report_type == ReportType.DETAILED:
+        elif report_type == ReportType.CUSTOM:
             aggregated["insights"] = self._extract_detailed_insights(data)
-        elif report_type == ReportType.COMPARISON:
-            aggregated["insights"] = self._extract_comparison_insights(data)
+        else:
+            aggregated["insights"] = self._extract_summary_insights(data)
         
         return aggregated
     
@@ -169,12 +170,10 @@ class ReportGenerator:
         """
         base_sections = ["executive_summary", "methodology"]
         
-        if report_type == ReportType.SUMMARY:
+        if report_type == ReportType.DEFAULT:
             return base_sections + ["key_findings", "conclusion"]
-        elif report_type == ReportType.DETAILED:
+        elif report_type == ReportType.CUSTOM:
             return base_sections + ["data_overview", "detailed_analysis", "insights", "recommendations"]
-        elif report_type == ReportType.COMPARISON:
-            return base_sections + ["comparison_framework", "comparative_analysis", "advantages", "conclusion"]
         else:
             return base_sections
     

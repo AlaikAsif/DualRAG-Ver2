@@ -106,3 +106,24 @@ class LLM:
         except Exception as e:
             logger.error("Health check failed: %s", e)
             return False
+
+
+# Global LLM instance
+_llm_instance: Optional[LLM] = None
+
+
+def get_llm(url: str = "http://localhost:11434", model: str = "granite3-dense:8b") -> LLM:
+    """
+    Get or create global LLM instance.
+    
+    Args:
+        url: Ollama server URL
+        model: Model name to use
+        
+    Returns:
+        LLM instance
+    """
+    global _llm_instance
+    if _llm_instance is None:
+        _llm_instance = LLM(url=url, model=model, connect=True)
+    return _llm_instance
